@@ -1,4 +1,5 @@
 streamlit
-requests==2.31.0
-pandas==2.1.3
-gTTS==2.4.0
+requests
+pandas
+
+gTTS
