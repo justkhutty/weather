@@ -32,10 +32,10 @@ def get_weather(city):
     
     # Try different formatting variations
     city_variations = [
-        city_cleaned.title(),  # Title Case: "Kuala Lumpur"
-        city_cleaned.upper(),  # Upper Case: "KUALA LUMPUR"
-        city_cleaned.lower(),  # Lower Case: "kuala lumpur"
-        city_cleaned,          # Original input
+        city_cleaned,          # Original input (e.g., "Paris, France")
+        city_cleaned.title(),  # Title Case: "Paris, France"
+        city_cleaned.upper(),  # Upper Case: "PARIS, FRANCE"
+        city_cleaned.lower(),  # Lower Case: "paris, france"
     ]
     
     for city_try in city_variations:
@@ -45,7 +45,7 @@ def get_weather(city):
             'units': 'metric'
         }
         try:
-            response = requests.get(BASE_URL, params=params)
+            response = requests.get(BASE_URL, params=params, timeout=10)
             if response.status_code == 200:
                 return response.json()
         except requests.exceptions.RequestException:
@@ -61,10 +61,10 @@ def get_forecast(city):
     
     # Try different formatting variations
     city_variations = [
-        city_cleaned.title(),  # Title Case: "Kuala Lumpur"
-        city_cleaned.upper(),  # Upper Case: "KUALA LUMPUR"
-        city_cleaned.lower(),  # Lower Case: "kuala lumpur"
-        city_cleaned,          # Original input
+        city_cleaned,          # Original input (e.g., "Paris, France")
+        city_cleaned.title(),  # Title Case: "Paris, France"
+        city_cleaned.upper(),  # Upper Case: "PARIS, FRANCE"
+        city_cleaned.lower(),  # Lower Case: "paris, france"
     ]
     
     for city_try in city_variations:
@@ -74,7 +74,7 @@ def get_forecast(city):
             'units': 'metric'
         }
         try:
-            response = requests.get(FORECAST_URL, params=params)
+            response = requests.get(FORECAST_URL, params=params, timeout=10)
             if response.status_code == 200:
                 return response.json()
         except requests.exceptions.RequestException:
@@ -259,6 +259,7 @@ with col2:
 if city and city.strip() and (search_button or 'last_city' not in st.session_state or st.session_state.last_city != city):
     st.session_state.last_city = city
     st.session_state.weather_loaded = False
+    st.session_state.search_attempted = True
     
     with st.spinner(f"Fetching weather data for {city.strip()}..."):
         weather_data = get_weather(city)
@@ -268,6 +269,10 @@ if city and city.strip() and (search_button or 'last_city' not in st.session_sta
         st.session_state.weather_data = weather_data
         st.session_state.forecast_data = forecast_data
         st.session_state.weather_loaded = True
+        st.session_state.error_data = None
+    else:
+        st.session_state.weather_loaded = False
+        st.session_state.error_data = weather_data
 
 # Display weather if available
 if st.session_state.get('weather_loaded', False):
@@ -336,20 +341,19 @@ if st.session_state.get('weather_loaded', False):
     else:
         st.warning("Forecast data unavailable")
         
-elif st.session_state.get('last_city'):
+elif st.session_state.get('search_attempted') and st.session_state.get('error_data'):
     # Show error if search was attempted but failed
-    weather_data = st.session_state.get('weather_data')
-    if weather_data:
-        error_msg = weather_data.get('message', 'Unknown error')
-        
-        # Check if it's likely a spelling issue
-        if 'not found' in error_msg.lower() or weather_data.get('cod') == 404:
-            st.error(f"❌ City '{st.session_state.last_city}' not found. Please verify the city name exists.")
-            st.info("💡 **Tip:** If the city has a common name, try adding the country (e.g., 'Asaba, Nigeria' or 'Paris, France')")
-        else:
-            st.error(f"❌ Error: {error_msg}")
-            if 'Invalid API key' in str(error_msg):
-                st.warning("⚠️ Please check that your API key is correctly configured in the code.")
+    error_data = st.session_state.error_data
+    error_msg = error_data.get('message', 'Unknown error') if error_data else 'No response from server'
+    
+    # Check if it's likely a spelling issue
+    if 'not found' in error_msg.lower() or error_data.get('cod') == 404:
+        st.error(f"❌ City '{st.session_state.last_city}' not found. Please verify the city name exists.")
+        st.info("💡 **Tip:** If the city has a common name, try adding the country (e.g., 'Asaba, Nigeria' or 'Paris, France')")
+    else:
+        st.error(f"❌ Error: {error_msg}")
+        if 'Invalid API key' in str(error_msg):
+            st.warning("⚠️ Please check that your API key is correctly configured in Streamlit secrets.")
 
 # Footer
 st.divider()
